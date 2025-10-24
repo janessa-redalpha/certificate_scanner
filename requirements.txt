@@ -1,0 +1,13 @@
+# Certificate Scanner Requirements
+# This project uses only Python standard library modules
+# No external dependencies required
+
+# Python 3.6+ required
+# Standard library modules used:
+# - ssl
+# - socket
+# - csv
+# - sys
+# - datetime
+# - typing
+# - argparse

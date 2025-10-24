@@ -1,0 +1,76 @@
+name: Certificate Scanner
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  certificate-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # No additional dependencies needed - using standard library only
+        
+    - name: Run certificate scanner
+      run: |
+        echo "🔍 Running Certificate Inventory Scanner..."
+        python cert_scanner.py --verbose
+        
+    - name: Upload certificate report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: certificate-report
+        path: cert_report.csv
+        retention-days: 30
+        
+    - name: Comment on PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          try {
+            const csvContent = fs.readFileSync('cert_report.csv', 'utf8');
+            const lines = csvContent.split('\n').filter(line => line.trim());
+            const headers = lines[0].split(',');
+            const data = lines.slice(1).map(line => {
+              const values = line.split(',');
+              return headers.reduce((obj, header, index) => {
+                obj[header] = values[index];
+                return obj;
+              }, {});
+            });
+            
+            let comment = '## 🔍 Certificate Scan Results\n\n';
+            comment += '| Host | Subject | Issuer | Days to Expiry | Status |\n';
+            comment += '|------|---------|--------|----------------|--------|\n';
+            
+            data.forEach(row => {
+              const days = row.days_to_expiry || 'N/A';
+              const status = row.status === 'valid' ? '✅' : '❌';
+              comment += `| ${row.host} | ${row.subject} | ${row.issuer} | ${days} | ${status} |\n`;
+            });
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          } catch (error) {
+            console.log('Could not read certificate report:', error.message);
+          }

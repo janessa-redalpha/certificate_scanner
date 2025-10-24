@@ -1,0 +1,5 @@
+google.com
+github.com
+stackoverflow.com
+microsoft.com
+apple.com
